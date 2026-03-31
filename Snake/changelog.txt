@@ -1,0 +1,14 @@
+New in version 2.3 !
+
++Frame around level
++Dymanic screen size support
+
+=Fixed being able to backpedal, immediately kill you
+=Recolored the game to be more realistic
+=redesigned ui
+
+-Removed speedup
+
+New in version 2.4
+
++Touch support for monitors
