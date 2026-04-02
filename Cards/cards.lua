@@ -6,6 +6,12 @@ func.value = {{"A",10},{2, 2},{3, 3},{4, 4},{5, 5},{6, 6},{7, 7},{8, 8},{9, 9},{
 
 local scr = vector.new(term.getSize())
 
+local cardBack = {
+	"\127\127\127",
+	"\127\127\127",
+	"\127\127\127",
+	"\127\127\127",
+}
 local suit_layout = {
 	{
 		{" "," "," "},
@@ -102,6 +108,18 @@ local card_valuepos_big = vector.new(card_size_big.x/2, card_size_big.y/2)
 
 local card_small = true
 
+local tmp_bgcol = term.getBackgroundColor()
+local tmp_txcol = term.getTextColor()
+
+local function saveColors()
+	tmp_bgcol = term.getBackgroundColor()
+end tmp_txcol = term.getTextColor()
+
+local function resetColors()
+	term.setBackgroundColor(tmp_bgcol)
+	term.setTextColor(tmp_txcol)
+end
+
 func.create = function(_suit, _value)
 	local _card = {}
 	_card.suitString = func.suit[_suit][1]
@@ -111,6 +129,7 @@ func.create = function(_suit, _value)
 	_card.suitID = _suit
 	_card.valueID = _value
 	_card.pos = vector.new(1, 1)
+	_card.flipped = false
 	return _card
 end
 
@@ -123,40 +142,62 @@ local function cardWrite(_string, _x, _y)
 end
 
 func.drawSmall = function(_card)
+	saveColors()
 	scr = vector.new(term.getSize())
-	paintutils.drawFilledBox(_card.pos.x, _card.pos.y, card_size_small.x + (_card.pos.x-1), card_size_small.y + (_card.pos.y-1), card_color)
-	for i=1,#card_suitpos_small do
-	
-		local _pos = vector.new(card_suitpos_small[i].x + (_card.pos.x-1) , card_suitpos_small[i].y + (_card.pos.y-1))
+	if _card.flipped == false then
+		paintutils.drawFilledBox(_card.pos.x, _card.pos.y, card_size_small.x + (_card.pos.x-1), card_size_small.y + (_card.pos.y-1), card_color)
+		for i=1,#card_suitpos_small do
 		
-		term.setTextColor(_card.suitColor)
-		cardWrite(_card.suitString, _pos.x, _pos.y)
+			local _pos = vector.new(card_suitpos_small[i].x + (_card.pos.x-1) , card_suitpos_small[i].y + (_card.pos.y-1))
+			
+			term.setTextColor(_card.suitColor)
+			cardWrite(_card.suitString, _pos.x, _pos.y)
+		end
+		term.setCursorPos(card_valuepos_small.x + (_card.pos.x-1) , card_valuepos_small.y + (_card.pos.y-1))
+		write(_card.valueString)
+	else
+		paintutils.drawFilledBox(_card.pos.x, _card.pos.y, card_size_small.x + (_card.pos.x-1), card_size_small.y + (_card.pos.y-1), card_color)
+		term.setTextColor(colors.red)
+		for c=1, 2 do
+			local _pos = vector.new(_card.pos.x+1, _card.pos.y)
+			cardWrite("\127", _pos.x, _pos.y+c)
+		end
 	end
-	term.setCursorPos(card_valuepos_small.x + (_card.pos.x-1) , card_valuepos_small.y + (_card.pos.y-1))
-	write(_card.valueString)
+	resetColors()
 end
 
 func.drawBig = function(_card)
+	saveColors()
 	scr = vector.new(term.getSize())
-	paintutils.drawFilledBox(_card.pos.x, _card.pos.y, card_size_big.x + (_card.pos.x-1), card_size_big.y + (_card.pos.y-1), card_color)
-	for i=1,#card_suitpos_big do
-		term.setTextColor(_card.suitColor)
-		if card_suitpos_big[i].x==card_size_big.x and _card.valueString==10 then
-			local _pos = vector.new(card_suitpos_big[i].x-1 + (_card.pos.x-1) , card_suitpos_big[i].y + (_card.pos.y-1))
-			
-			cardWrite(_card.valueString, _pos.x, _pos.y)
-		else
-			local _pos = vector.new(card_suitpos_big[i].x + (_card.pos.x-1) , card_suitpos_big[i].y + (_card.pos.y-1))
-			
-			cardWrite(_card.valueString, _pos.x, _pos.y)
+	if _card.flipped == false then
+		paintutils.drawFilledBox(_card.pos.x, _card.pos.y, card_size_big.x + (_card.pos.x-1), card_size_big.y + (_card.pos.y-1), card_color)
+		for i=1,#card_suitpos_big do
+			term.setTextColor(_card.suitColor)
+			if card_suitpos_big[i].x==card_size_big.x and _card.valueString==10 then
+				local _pos = vector.new(card_suitpos_big[i].x-1 + (_card.pos.x-1) , card_suitpos_big[i].y + (_card.pos.y-1))
+				
+				cardWrite(_card.valueString, _pos.x, _pos.y)
+			else
+				local _pos = vector.new(card_suitpos_big[i].x + (_card.pos.x-1) , card_suitpos_big[i].y + (_card.pos.y-1))
+				
+				cardWrite(_card.valueString, _pos.x, _pos.y)
+			end
+		end
+		for i=1, #suit_layout[_card.valueID] do
+			local _pos = vector.new(2 + (_card.pos.x-1), 1+i + (_card.pos.y-1))
+			for c=1, #suit_layout[_card.valueID][i] do
+				cardWrite(string.gsub(suit_layout[_card.valueID][i][c], "s", _card.suitString), _pos.x+(c-1), _pos.y)
+			end
+		end
+	else
+		paintutils.drawFilledBox(_card.pos.x, _card.pos.y, card_size_big.x + (_card.pos.x-1), card_size_big.y + (_card.pos.y-1), card_color)
+		term.setTextColor(colors.red)
+		for c=1, #cardBack do
+			local _pos = vector.new(_card.pos.x+1, _card.pos.y)
+			cardWrite(cardBack[c], _pos.x, _pos.y+c)
 		end
 	end
-	for i=1, #suit_layout[_card.valueID] do
-		local _pos = vector.new(2 + (_card.pos.x-1), 1+i + (_card.pos.y-1))
-		for c=1, #suit_layout[_card.valueID][i] do
-			cardWrite(string.gsub(suit_layout[_card.valueID][i][c], "s", _card.suitString), _pos.x+(c-1), _pos.y)
-		end
-	end
+	resetColors()
 end
 
 func.draw = function(_small, _card)
