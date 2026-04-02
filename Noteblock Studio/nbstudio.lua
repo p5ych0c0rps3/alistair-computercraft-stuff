@@ -17,8 +17,20 @@ function init()
 	activeTrack = 1
 	hit = {}
 	drawhit = false
+	tempdir = (workdir.."/nbstudio_temp")
 	
 	--pianoroll
+	col_theme = {}
+	
+	if fs.exists(workdir.."/nbstudio_theme") == true then
+		col_theme = paintutils.loadImage(workdir.."/nbstudio_theme")
+	end
+	
+	col_theme = { colors.white, colors.lightGray, colors.gray, colors.black, colors.green }
+	
+	if fs.exists(workdir.."/bg3.nfp") == true then
+		ast_background = paintutils.loadImage(workdir.."/bg3.nfp")
+	end
 	margin = vector.new(17, 3)
 	scroll = vector.new(0, 0)
 	octave = 1
@@ -36,6 +48,7 @@ function init()
 	note = { "F#", "G ", "G#", "A ", "A#", "B ", "C ", "C#", "D ", "D#", "E ", "F " }
 	inst = { "harp", "basedrum", "snare", "hat", "bass", "flute", "bell", "guitar", "chime", "xylophone", "iron_xylophone", "cow_bell", "didgeridoo", "bit", "banjo", "pling" }
 	instname = { "Harp", "Kick", "Snare", "Hat", "Bass", "Flute", "Bell", "Guitar", "Chime", "Xylo", "Xylo2", "Cow Bell", "Didgeridoo", "Square", "Banjo", "Pling" }
+
 end
 init()
 
@@ -63,14 +76,16 @@ function pianorollDrawRow(i, y, o)
 		end
 	end
 	term.setCursorPos((margin.x-4), margin.y+y+scroll.y)
-	term.setBackgroundColor(colors.black)
-	term.setTextColor(colors.white)
+	term.setBackgroundColor(col_theme[4])
+	term.setTextColor(col_theme[1])
 	write(note[i]..o)
 end
 
 function pianorollDraw()
-	paintutils.drawLine(margin.x+songpos+scroll.x, margin.y+1, margin.x+songpos+scroll.x, margin.y+25+scroll.y, colors.orange)
-	term.setBackgroundColor(colors.black)
+	if pause == false then
+		paintutils.drawLine(margin.x+songpos+scroll.x, margin.y+1, margin.x+songpos+scroll.x, margin.y+25+scroll.y, col_theme[5])
+	end
+	term.setBackgroundColor(col_theme[4])
 	for o=1, 2 do
 		for i=1, #note do
 			pianorollDrawRow(i, i+(#note*(o-1)), o)
@@ -85,20 +100,29 @@ function pianorollDrawNotes()
 	for t=1, #songdata[activeTrack] do
 		for c=1, #songdata[activeTrack][t] do
 			if songdata[activeTrack][t][c][1] ~= nil then
-				paintutils.drawPixel(margin.x+t+scroll.x, margin.y+songdata[activeTrack][t][c][1]+scroll.y, colors.white)
+				paintutils.drawPixel(margin.x+t+scroll.x, margin.y+songdata[activeTrack][t][c][1]+scroll.y, col_theme[1])
 			end
 		end
 	end
-	local file = fs.open("nbstudio_temp", "w+")
-	file.write(textutils.serialise(songdata))
 end
 
 function drawBackground()
-	
+	if ast_background ~= nil then
+		for i=1, math.ceil(scr.x/32) do
+		paintutils.drawImage(ast_background, margin.x+(32*(i-1))+1, margin.y+1)
+		end
+	end
+end
+
+function writeBarVals()
+	for i=1, math.ceil(scr.x/4) do
+		term.setCursorPos(margin.x+(16*(i-1))+1, margin.y)
+		write( ((math.abs(scroll.x)+(16*(i-1))) / 16)+1 )
+	end
 end
 
 function drawGuide()
-	paintutils.drawPixel(guide.x, guide.y, colors.white)
+	paintutils.drawPixel(guide.x, guide.y, col_theme[1])
 end
 	
 function pianorollAddNote(_x, _y, _inst)
@@ -121,11 +145,13 @@ function pianorollAddNote(_x, _y, _inst)
 
 	end
 	draw()
+	playerSaveSong(tempdir)
 end
 
 function pianorollRemoveNote(_x, _y)
 	local _scrpos = vector.new(_x-scroll.x-margin.x, _y-scroll.y-margin.y)
 	if _scrpos.x > 0 and _scrpos.y > 0 and _scrpos.y <=25 then
+	
 	
 		--local _track = songdata[activeTrack]
 		--if #_track < _scrpos.x then
@@ -150,12 +176,15 @@ function pianorollRemoveNote(_x, _y)
 		--term.setBackgroundColor(colors.black)
 		--print(_chord)
 	end
+	playerSaveSong(tempdir)
 end
+
+
 --Player
 function playerLoadSong(filepath)
 	if fs.exists(filepath) then
 		--songdata = lUtils.asset.load(filepath)
-		local file = fs.open("nbstudio_temp", "r")
+		local file = fs.open(filepath, "r")
 		local _data = file.readAll()
 		if _data ~= nil then
 			songdata = textutils.unserialise(_data)
@@ -179,6 +208,11 @@ function playerNewSong()
 	songdata = { {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, 0.3 }
 	rate = songdata[17]
 	songpos = 1
+end
+
+function playerSaveSong(path)
+	local file = fs.open(path, "w+")
+	file.write(textutils.serialise(songdata))
 end
 
 function playerPlay()
@@ -235,13 +269,13 @@ end
 
 function drawOverUi()
 	--x margin box
-	paintutils.drawFilledBox(1, 1, margin.x-5, scr.y, colors.black)
+	paintutils.drawFilledBox(1, 1, margin.x-5, scr.y, col_theme[4])
 	--y margin box
-	paintutils.drawFilledBox(1, 1, scr.x, margin.y, colors.black)
+	paintutils.drawFilledBox(1, 1, scr.x, margin.y, col_theme[4])
 end
 
 function resetDraw()
-	term.setBackgroundColor(colors.black)
+	term.setBackgroundColor(col_theme[4])
 	term.clear()
 end
 
@@ -274,7 +308,7 @@ end
 
 function listInst()
 	for i=1, #inst do
-		term.setBackgroundColor(colors.black)
+		term.setBackgroundColor(col_theme[4])
 		term.setCursorPos(1, margin.y+i)
 		write(instname[i])
 	end
@@ -282,16 +316,18 @@ end
 
 function draw()
 	resetDraw()
+	drawBackground()
 	while drawhit do
 		for i=1, #hit do
-			paintutils.drawLine(margin.x+1, margin.y+hit[i]+scroll.y, scr.x, margin.y+hit[i]+scroll.y, colors.gray)
+			paintutils.drawLine(margin.x+1, margin.y+hit[i]+scroll.y, scr.x, margin.y+hit[i]+scroll.y, col_theme[3])
 		end
 		drawhit = false
 		hit = {}
 	end
-	pianorollDraw()
 	pianorollDrawNotes()
+	pianorollDraw()
 	drawOverUi()
+	writeBarVals()
 	listInst()
 	
 end
@@ -303,6 +339,15 @@ function inputKey()
          --inputs here
 		if key == keys.space then
 			pause = not pause	
+		elseif key == keys.up then
+			pianorollScroll(0, -1)
+		elseif key == keys.down then
+			pianorollScroll(0, 1)
+		elseif key == keys.left then
+			pianorollScroll(-16, 0)
+		elseif key == keys.right then
+			pianorollScroll(16, 0)
+			
 		elseif key == keys.leftShift then
 			shift = true
 		elseif key == keys.a then
@@ -380,7 +425,7 @@ function inputMouseWheel()
 		if shift == false then
 			pianorollScroll(0, _dir)
 		else
-			pianorollScroll(_dir, 0)
+			pianorollScroll(_dir*16, 0)
 		end
 		draw()
     end
@@ -415,9 +460,13 @@ function inputMouseClick()
         local _event, _b, _x, _y = os.pullEvent("mouse_click")
          --inputs here
 		if _x > margin.x then
-			showguide = true
-			guide.x = _x
-			guide.y = _y
+			
+			if _b == 1 then
+				showguide = true
+				guide.x = _x
+				guide.y = _y
+				notePlayNote(activeTrack, 1, _y-scroll.y-margin.y)
+			end
 		end
 		draw()
     end
@@ -430,9 +479,12 @@ function inputMouseDrag()
         local _event, _b, _x, _y = os.pullEvent("mouse_drag")
          --inputs here
 		if _x > margin.x then
-			guide.x = _x
-			guide.y = _y
-			notePlayNote(activeTrack, 1, _y-scroll.y-margin.y)
+			
+			if _b == 1 then
+				guide.x = _x
+				guide.y = _y
+				notePlayNote(activeTrack, 1, _y-scroll.y-margin.y)
+			end
 		end
 		
 		if _b == 2 then
@@ -444,8 +496,8 @@ function inputMouseDrag()
     end
 end
 
-if fs.exists("nbstudio_temp") then
-	playerLoadSong("nbstudio_temp")
+if fs.exists(tempdir) then
+	playerLoadSong(tempdir)
 else
 	playerNewSong()
 end
