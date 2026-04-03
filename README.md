@@ -6,7 +6,7 @@ Here are programs i made for the Minecraft CC: Tweaked mod. I haven't tested any
   It is Snake. Program made to break in computercraft. Supports variable screen sizes and monitor touch.
 
 ### Noteblock Studio (WIP)
-<img width="636" height="378" alt="nbstudio" src="https://github.com/user-attachments/assets/b84eb4a6-123c-49b7-aa1c-010e0befb147" />
+<img width="636" height="378" alt="nbstudio" src="https://github.com/user-attachments/assets/f41f51c8-8fbd-489f-8b51-29f0bf622825" />
 
   Graphical interface for sequencing noteblock compositions in the style of a pianoroll
 
