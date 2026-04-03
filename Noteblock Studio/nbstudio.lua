@@ -1,5 +1,5 @@
 function init()
-	dt = 0.033
+	dt = 0
 	scrprev = vector.new()
     scr = vector.new(term.getSize())
     workdir = fs.getDir(shell.getRunningProgram())
@@ -42,6 +42,8 @@ function init()
 	rate = 0.1
 	pause = true
 	songpos = 1
+	bpm = 120
+	activevol = 1.0
 	
 	--note
 	speaker = peripheral.find("speaker")
@@ -108,8 +110,8 @@ end
 
 function drawBackground()
 	if ast_background ~= nil then
-		for i=1, math.ceil(scr.x/32) do
-		paintutils.drawImage(ast_background, margin.x+(32*(i-1))+1, margin.y+1)
+		for i=1, math.ceil(scr.x/16) do
+		paintutils.drawImage(ast_background, margin.x+(16*(i-1))+1, margin.y+1)
 		end
 	end
 end
@@ -139,7 +141,7 @@ function pianorollAddNote(_x, _y, _inst)
 		local _chord = _track[_scrpos.x]
 		if #_chord == 0 then songdata[activeTrack][_scrpos.x][1] = {} end
 		
-		local _note = {_scrpos.y, 1}
+		local _note = {_scrpos.y, activevol}
 		
 		songdata[activeTrack][_scrpos.x][#_chord+1] = _note
 
@@ -179,7 +181,6 @@ function pianorollRemoveNote(_x, _y)
 	playerSaveSong(tempdir)
 end
 
-
 --Player
 function playerLoadSong(filepath)
 	if fs.exists(filepath) then
@@ -187,8 +188,7 @@ function playerLoadSong(filepath)
 		local file = fs.open(filepath, "r")
 		local _data = file.readAll()
 		if _data ~= nil then
-			songdata = textutils.unserialise(_data)
-			rate = songdata[17]
+			playerLoadSongTable(textutils.unserialise(_data))
 		else
 			playerNewSong()
 		end
@@ -198,16 +198,16 @@ end
 
 function playerLoadSongTable(data)
 	songdata = data
-	rate = songdata[17]
+	bpm = songdata[17]
+	rate = ((60000/songdata[17])/10000)/0.5
 	songpos = 1
 	changeActiveTrack(1)
 	--play()
 end
 
 function playerNewSong()
-	songdata = { {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, 0.3 }
-	rate = songdata[17]
-	songpos = 1
+	local _data = { {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, 120 }
+	playerLoadSongTable(_data)
 end
 
 function playerSaveSong(path)
@@ -246,7 +246,7 @@ end
 
 --Note
 function notePlayNote(sound, volume, note)
-	if note ~= nill then
+	if note ~= nill and note > 0 and note <= 25 then
 		if note > -1 then
 			speaker.playNote(inst[sound], volume, note-1)
 			drawhit = true
@@ -258,10 +258,10 @@ end
 
 --Main
 function changeActiveTrack(totrack)
-	if songdata[totrack] == nil then
-		songdata[totrack+1] = {}
-	end
-		if totrack <= #inst then
+	--if songdata[totrack] == nil then
+	--	songdata[totrack+1] = {}
+	--end
+	if totrack <= #inst then
 		activeTrack = totrack
 		notePlayNote(activeTrack, 1, 7)
 	end
@@ -269,9 +269,43 @@ end
 
 function drawOverUi()
 	--x margin box
-	paintutils.drawFilledBox(1, 1, margin.x-5, scr.y, col_theme[4])
+	paintutils.drawFilledBox(1, 1, margin.x-5, scr.y, col_theme[3])
 	--y margin box
-	paintutils.drawFilledBox(1, 1, scr.x, margin.y, col_theme[4])
+	paintutils.drawFilledBox(1, 1, scr.x, margin.y, col_theme[3])
+	paintutils.drawLine(margin.x+2, margin.y, scr.x, margin.y, col_theme[4])
+	writeEx("Noteblock Studio v1", 1, 1, col_theme[3], col_theme[1])
+	writeEx("BPM", 1, 2, col_theme[3], col_theme[1])
+	writeEx("<"..require "cc.strings".ensure_width(tostring(bpm), 3)..">", 5, 2, col_theme[4], col_theme[1])
+	writeEx("VOL", 11, 2, col_theme[3], col_theme[1])
+	writeEx("<"..require "cc.strings".ensure_width(tostring(activevol), 3)..">", 15, 2, col_theme[4], col_theme[1])
+end
+
+function writeEx(_string, _x, _y, _bgcol, _tcol)
+	local _tbgcol = term.getBackgroundColor()
+	local _ttcol = term.getTextColor()
+	
+	term.setCursorPos(_x, _y)
+	term.setBackgroundColor(_bgcol)
+	term.setTextColor(_tcol)
+	write(_string)
+	
+	term.setBackgroundColor(_tbgcol)
+	term.setTextColor(_ttcol)
+end
+
+function updateBPM(_v)
+	if bpm > 20 and bpm < 255 then
+		bpm = bpm + _v
+		rate = ((60000/bpm)/10000)/0.5
+		songdata[17] = bpm
+		playerSaveSong(tempdir)
+	end
+end
+
+function updateVol(_v)
+	if activevol+_v >= 0 and activevol+_v <= 1 then
+		activevol = activevol + _v
+	end
 end
 
 function resetDraw()
@@ -308,9 +342,11 @@ end
 
 function listInst()
 	for i=1, #inst do
-		term.setBackgroundColor(col_theme[4])
-		term.setCursorPos(1, margin.y+i)
-		write(instname[i])
+		if i == activeTrack then
+			writeEx(require "cc.strings".ensure_width(instname[i], 12), 1, margin.y+i, col_theme[1], col_theme[4])
+		else
+			writeEx(require "cc.strings".ensure_width(instname[i], 12), 1, margin.y+i, col_theme[4], col_theme[1])
+		end
 	end
 end
 
@@ -339,6 +375,7 @@ function inputKey()
          --inputs here
 		if key == keys.space then
 			pause = not pause	
+			hit = {}
 		elseif key == keys.up then
 			pianorollScroll(0, -1)
 		elseif key == keys.down then
@@ -355,51 +392,51 @@ function inputKey()
 		elseif key == keys.z then
 			notePlayNote(activeTrack, 1, 2)
 		elseif key == keys.s then
-			notePlayNote(activeTrack, 2, 3)
+			notePlayNote(activeTrack, 1, 3)
 		elseif key == keys.x then
-			notePlayNote(activeTrack, 3, 4)
+			notePlayNote(activeTrack, 1, 4)
 		elseif key == keys.d then
-			notePlayNote(activeTrack, 4, 5)
+			notePlayNote(activeTrack, 1, 5)
 		elseif key == keys.c then
-			notePlayNote(activeTrack, 5, 6)
+			notePlayNote(activeTrack, 1, 6)
 		elseif key == keys.v then
-			notePlayNote(activeTrack, 6, 7)
+			notePlayNote(activeTrack, 1, 7)
 		elseif key == keys.g then
-			notePlayNote(activeTrack, 7, 8)
+			notePlayNote(activeTrack, 1, 8)
 		elseif key == keys.b then
-			notePlayNote(activeTrack, 8, 9)
+			notePlayNote(activeTrack, 1, 9)
 		elseif key == keys.h then
-			notePlayNote(activeTrack, 9, 10)
+			notePlayNote(activeTrack, 1, 10)
 		elseif key == keys.n then
-			notePlayNote(activeTrack, 10, 11)
+			notePlayNote(activeTrack, 1, 11)
 		elseif key == keys.m then
-			notePlayNote(activeTrack, 11, 12)
+			notePlayNote(activeTrack, 1, 12)
 		elseif key == keys.one then
-			notePlayNote(activeTrack, 12, 13)
+			notePlayNote(activeTrack, 1, 13)
 		elseif key == keys.q then
-			notePlayNote(activeTrack, 13, 14)
+			notePlayNote(activeTrack, 1, 14)
 		elseif key == keys.two then
-			notePlayNote(activeTrack, 14, 15)
+			notePlayNote(activeTrack, 1, 15)
 		elseif key == keys.w then
-			notePlayNote(activeTrack, 15, 16)
+			notePlayNote(activeTrack, 1, 16)
 		elseif key == keys.three then
-			notePlayNote(activeTrack, 16, 17)
+			notePlayNote(activeTrack, 1, 17)
 		elseif key == keys.e then
-			notePlayNote(activeTrack, 17, 18)
+			notePlayNote(activeTrack, 1, 18)
 		elseif key == keys.r then
-			notePlayNote(activeTrack, 18, 19)
+			notePlayNote(activeTrack, 1, 19)
 		elseif key == keys.five then
-			notePlayNote(activeTrack, 19, 20)
+			notePlayNote(activeTrack, 1, 20)
 		elseif key == keys.t then
-			notePlayNote(activeTrack, 20, 21)
+			notePlayNote(activeTrack, 1, 21)
 		elseif key == keys.six then
-			notePlayNote(activeTrack, 21, 22)
+			notePlayNote(activeTrack, 1, 22)
 		elseif key == keys.y then
-			notePlayNote(activeTrack, 22, 23)
+			notePlayNote(activeTrack, 1, 23)
 		elseif key == keys.u then
-			notePlayNote(activeTrack, 23, 24)
+			notePlayNote(activeTrack, 1, 24)
 		elseif key == keys.eight then
-			notePlayNote(activeTrack, 23, 25)
+			notePlayNote(activeTrack, 1, 25)
 		end
 		draw()
     end
@@ -440,7 +477,7 @@ function inputMouseUp()
 		if _b == 1 then
 			if _x > margin.x and _y > margin.y then
 				pianorollAddNote(_x, _y, 1)
-			elseif _x < margin.x-4 then
+			elseif _x < margin.x-4 and _y > margin.y then
 				changeActiveTrack(_y-margin.y)
 			end
 		elseif _b == 2 then
@@ -459,14 +496,25 @@ function inputMouseClick()
 		
         local _event, _b, _x, _y = os.pullEvent("mouse_click")
          --inputs here
-		if _x > margin.x then
-			
+		if _x > margin.x and _y > margin.y then
 			if _b == 1 then
 				showguide = true
 				guide.x = _x
 				guide.y = _y
 				notePlayNote(activeTrack, 1, _y-scroll.y-margin.y)
 			end
+		elseif _x > margin.x and _y == margin.y then
+			if _b == 1 then
+				scroll.x = (16*((_x - margin.x)-1))*-1
+			end
+		elseif _x == 9 and _y == 2 then
+			updateBPM(1)
+		elseif _x == 5 and _y == 2 then
+			updateBPM(-1)
+		elseif _x == 15 and _y == 2 then
+			updateVol(-0.1)
+		elseif _x == 19 and _y == 2 then
+			updateVol(0.1)
 		end
 		draw()
     end
@@ -478,12 +526,16 @@ function inputMouseDrag()
 		
         local _event, _b, _x, _y = os.pullEvent("mouse_drag")
          --inputs here
-		if _x > margin.x then
+		if _x > margin.x and _y > margin.y then
 			
 			if _b == 1 then
 				guide.x = _x
 				guide.y = _y
 				notePlayNote(activeTrack, 1, _y-scroll.y-margin.y)
+			end
+		elseif _x > margin.x and _y == margin.y then
+			if _b == 1 then
+				scroll.x = (16*((_x - margin.x)-1))*-1
 			end
 		end
 		
